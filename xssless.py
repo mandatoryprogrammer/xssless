@@ -194,8 +194,11 @@ def xss_gen(requestList, settingsDict):
         if requestDict['method'].lower() == "post":
             postString = ""
             for pair in requestDict['bodyList']:
-                if pair['Key'] in settingsDict['parseList']:
-                    postString += pair['Key'] + "=" + "' + encodeURIComponent(requestDoc.getElementsByName('" + pair['Key'] + "')[0].value) + '&"
+                if 'parseList' in settingsDict:
+                    if pair['Key'] in settingsDict['parseList']:
+                        postString += pair['Key'] + "=" + "' + encodeURIComponent(requestDoc.getElementsByName('" + pair['Key'] + "')[0].value) + '&"
+                    else:
+                        postString += pair['Key'] + "=" + pair['Value'] + "&"
                 else:
                     postString += pair['Key'] + "=" + pair['Value'] + "&"
 
