@@ -11,6 +11,13 @@ Usage
 3. Use xssless to generate your payload: `./xssless.py burp_export_file`
 4. Pwn!
 
+Features
+--------
+* Automated XSS payload generation from imported Burp proxy requests
+* Payloads are 100% asynchronous and won't freeze the user's browser
+* CSRF tokens can be easily extracted and set via the -p option
+* Crazy JavaScript worms with no hassle!
+
 Installation
 ------------
 
