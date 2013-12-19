@@ -15,13 +15,13 @@ Installation
 ------------
 
 If you don't have BeautifulSoup installed:
-    pip install beautifulsoup4
+`pip install beautifulsoup4`
 
 Download the latest xssless:
-    git clone https://github.com/mandatoryprogrammer/xssless
+`git clone https://github.com/mandatoryprogrammer/xssless`
 
 Run the script:
-    ./xssless.py -h
+`./xssless.py -h`
 
 
 Contributing
