@@ -11,6 +11,8 @@ Usage
 3. Use xssless to generate your payload: `./xssless.py burp_export_file`
 4. Pwn!
 
+A more detailed tutorial can be found [here](http://thehackerblog.com/xssless-automatic-xss-payload-generator/)
+
 Features
 --------
 * Automated XSS payload generation from imported Burp proxy requests
