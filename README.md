@@ -18,6 +18,11 @@ Features
 * CSRF tokens can be easily extracted and set via the -p option
 * Crazy JavaScript worms with no hassle!
 
+Upcoming
+--------
+* POST multipart support for file uploads via XSS
+* Self POSTing for propagating script itself
+
 Installation
 ------------
 
