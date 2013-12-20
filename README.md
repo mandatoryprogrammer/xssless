@@ -23,6 +23,7 @@ Upcoming
 --------
 * Self POSTing for propagating script itself
 * Eliminate BeautifulSoup dependency
+* Make URL paths relative
 
 Installation
 ------------
