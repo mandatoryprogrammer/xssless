@@ -269,7 +269,7 @@ def xss_gen(requestList, settingsDict):
 
         if requestDict['method'].lower() == "post":
             if requestDict['isupload'] == True:
-                payload += "       doRequest('" + requestDict['url'] + "', 'MPOST', '"
+                payload += "       doRequest('" + requestDict['path'] + "', 'MPOST', '"
                 multipart = ""
                 for item in requestDict['bodyList']:
                     multipart += "--BOUNDMARKER\\r\\n"
@@ -327,12 +327,12 @@ def xss_gen(requestList, settingsDict):
 
                 postString = postString[:-1] # Remove last &
 
-                payload += "        doRequest('" + requestDict['url'] + "', 'POST', '" + postString + "');\n"
+                payload += "        doRequest('" + requestDict['path'] + "', 'POST', '" + postString + "');\n"
 
         elif requestDict['method'].lower() == "get":
-            payload += "        doRequest('" + requestDict['url'] + "', 'GET', '');\n"
+            payload += "        doRequest('" + requestDict['path'] + "', 'GET', '');\n"
         elif requestDict['method'].lower() == "head":
-            payload += "        doRequest('" + requestDict['url'] + "', 'HEAD', '');\n"
+            payload += "        doRequest('" + requestDict['path'] + "', 'HEAD', '');\n"
             pass
 
         payload += "    }\n"
