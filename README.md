@@ -101,8 +101,3 @@ Contributing
 
 Want to contribute some code to this project? Great! I'm not the best at Python or Javascript so I appreciate any additions to the project. Contributions can also be in the form of new feature ideas, if you've got one let me know!
 
-The Joke
---------
-
-Just to point out, the joke in the name here is really to xss-LESS, ie. stop putting so much time into building payloads! Not to be without XSS which would be a sad state indeed (well, for the pentester anyways!).
-
