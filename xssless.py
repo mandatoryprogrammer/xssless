@@ -351,6 +351,7 @@ ___  ___  ______ _____|  |   ____   ______ ______
       \/     \/     \/          \/     \/     \/ 
                The automatic XSS payload generator
                      By mandatory (Matthew Bryant)
+    https://github.com/mandatoryprogrammer/xssless
 """
 
 helpmenu = """
