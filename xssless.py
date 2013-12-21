@@ -284,13 +284,15 @@ def xss_gen(requestList, settingsDict):
                                 # Find content type
                                 content_type = mimetypes.guess_type(settingsDict['fileDict'][item['name']])[0]
 
+                                if content_type is None:
+                                    content_type = "application/octet-stream"
+
                                 multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + item['filename'] + '"\\r\\n'
                                 multipart += 'Content-Type: ' + content_type + '\\r\\n\\r\\n'
                                 multipart += filecontents + '\\r\\n'
 
                                 del filecontents
                                 del content_type
-                                del m
                             else:
                                 multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + item['filename'] + '"\\r\\n'
                                 multipart += 'Content-Type: ' + item['contenttype'] + '\\r\\n\\r\\n'
