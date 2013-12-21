@@ -30,13 +30,13 @@ Upcoming
 Installation
 ------------
 
-If you don't have BeautifulSoup installed:
-
-`pip install beautifulsoup4`
-
 Download the latest xssless:
 
 `git clone https://github.com/mandatoryprogrammer/xssless`
+
+Install dependencies:
+
+`pip install -r requirements.txt`
 
 Run the script:
 
