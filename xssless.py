@@ -359,7 +359,7 @@ ___  ___  ______ _____|  |   ____   ______ ______
 helpmenu = """
 Example: """ + sys.argv[0] + """ [ OPTION(S) ] [ BURP FILE ]
 
--h               Show's this help menu
+-h               Shows this help menu
 -p=PARSEFILE     Parse list - input file containing a list of CSRF token names to be automatically parsed and set with JS.
 -f=FILELIST      File list - input list of POST name/filenames to use in payload. ex: 'upload_filename,~/Desktop/shell.bin'
 -s               Don't display the xssless logo
