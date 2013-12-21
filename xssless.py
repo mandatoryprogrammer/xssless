@@ -1,10 +1,12 @@
 #!/usr/bin/env python
+
 import sys
 from bs4 import BeautifulSoup
 import base64
 import json
 import os
-import magic
+import mimetypes
+
 # Import burp export and return a list of decoded data
 def get_burp_list(filename):
     if not os.path.exists(filename):
@@ -280,9 +282,7 @@ def xss_gen(requestList, settingsDict):
                                 filecontents = payload_encode_file(settingsDict['fileDict'][item['name']])
 
                                 # Find content type
-                                m = magic.open(magic.MAGIC_MIME)
-                                m.load()
-                                content_type = m.file(settingsDict['fileDict'][item['name']])
+                                content_type = mimetypes.guess_type(settingsDict['fileDict'][item['name']])[0]
 
                                 multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + item['filename'] + '"\\r\\n'
                                 multipart += 'Content-Type: ' + content_type + '\\r\\n\\r\\n'
