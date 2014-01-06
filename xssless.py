@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-import sys
 from bs4 import BeautifulSoup
-import base64
-import json
+
 import os
+import sys
+import json
+import base64
+import binascii
 import mimetypes
 
 # Import burp export and return a list of decoded data
@@ -13,12 +15,11 @@ def get_burp_list(filename):
         return []
 
     with open(filename) as f:
-            filecontents = f.read()
+        filecontents = f.read()
 
     archive = BeautifulSoup(filecontents, "xml")
 
     requestList = []
-    item = archive.find_all('item')
 
     for item in archive.find_all('item'):
         tmpDict = {}
@@ -26,20 +27,20 @@ def get_burp_list(filename):
         tmpDict['response'] = base64.b64decode(item.response.string)
         tmpDict['url'] = item.url.string
         requestList.append(tmpDict)
-        del tmpDict
     
     return requestList
 
 # Return hex encoded string output of binary input
 def payload_encode_file(input_file):
-    filecontents = open(input_file).read()
-    hue = filecontents.encode("hex")
+    with open(input_file) as f:
+        filecontents = f.read()
+    hue = binascii.hexlify(filecontents)
     filecontents = '\\x' + '\\x'.join(hue[i:i+2] for i in xrange(0, len(hue), 2)) # Stackoverflow, because pythonistic
     return filecontents
 
 # Return hex encoded string output of binary input
 def payload_encode_input(filecontents):
-    hue = filecontents.encode("hex")
+    hue = binascii.hexlify(filecontents)
     filecontents = '\\x' + '\\x'.join(hue[i:i+2] for i in xrange(0, len(hue), 2)) # Stackoverflow, because pythonistic
     return filecontents
 
@@ -71,18 +72,16 @@ def parse_request(input_var, url):
     headerList = []
     host = ""
     for line in header_lines:
-        tmpList = line.split(": ")
+        key, value = line.split(": ", 1)
         headerDict = {}
-        headerDict['Key'] = tmpList[0]
-        headerDict['Value'] = tmpList[1]
+        headerDict['Key'] = key
+        headerDict['Value'] = value
 
         # Grab important values
         if headerDict['Key'].lower() == "host":
             host = headerDict['Value']
 
         headerList.append(headerDict)
-        del headerDict
-        del tmpList
 
     postisupload = False
     fileboundary = ""
@@ -122,9 +121,6 @@ def parse_request(input_var, url):
 
             tmp['body'] = sectionBody
             bodyList.append(tmp)
-            del tmp
-            del sectionHeader
-            del sectionBody
 
     else:
         # Create a list of body values (check for JSON, etc)
@@ -133,14 +129,11 @@ def parse_request(input_var, url):
         body_var_List = body_data.split("&")
         body_var_List = filter(None, body_var_List)
         for item in body_var_List:
-            tmpList = item.split("=")
+            key, value = item.split("=", 1)
             bodyDict = {}
-            bodyDict['Key'] = tmpList[0]
-            bodyDict['Value'] = tmpList[1]
+            bodyDict['Key'] = key
+            bodyDict['Value'] = value
             bodyList.append(bodyDict)
-            del tmpList
-            del bodyDict
-
         
     # Returned dict, chocked full of useful information formatted nicely for your convienience!
     returnDict = {}
@@ -165,9 +158,7 @@ def parse_response(input_var, url):
     flags = []
 
     # Split request into headers/body and parse header into list
-    request_parts = input_var.split("\r\n\r\n")
-    header_data = request_parts[0]
-    body_data = request_parts[1]
+    header_data, body_data = input_var.split("\r\n\r\n", 1)
     header_lines = header_data.split("\r\n")
     header_lines = filter(None, header_lines) # Filter any blank lines
 
@@ -181,17 +172,15 @@ def parse_response(input_var, url):
     headerList = []
     content_type = ""
     for line in header_lines:
-        tmpList = line.split(": ")
+        key, value = line.split(": ", 1)
         headerDict = {}
-        headerDict['Key'] = tmpList[0]
-        headerDict['Value'] = tmpList[1]
+        headerDict['Key'] = key
+        headerDict['Value'] = value
 
         if headerDict['Key'].lower() == "Content-Type".lower():
             content_type = headerDict['Value']
 
         headerList.append(headerDict)
-        del headerDict
-        del tmpList
 
     # Returned dict, chocked full of useful information formatted nicely for your convienience!
     returnDict = {}
@@ -261,9 +250,7 @@ def xss_gen(requestList, settingsDict):
     # Each request is done as a function that one requestion completion, calls the next function.
     # The result is an unclobered browser and no race conditions! (Because cookies may need to be set, etc)
 
-    # Counter for function numbers
-    i = 0
-    for conv in requestList:
+    for i, conv in enumerate(requestList):
         requestDict = parse_request(conv['request'], conv['url'])
         responseDict = parse_response(conv['response'], conv['url']) # Currently unused, for future heuristics
 
@@ -290,9 +277,6 @@ def xss_gen(requestList, settingsDict):
                                 multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + item['filename'] + '"\\r\\n'
                                 multipart += 'Content-Type: ' + content_type + '\\r\\n\\r\\n'
                                 multipart += filecontents + '\\r\\n'
-
-                                del filecontents
-                                del content_type
                             else:
                                 multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + item['filename'] + '"\\r\\n'
                                 multipart += 'Content-Type: ' + item['contenttype'] + '\\r\\n\\r\\n'
@@ -339,7 +323,6 @@ def xss_gen(requestList, settingsDict):
 
         payload += "    }\n"
         payload += "\n"
-        i += 1
 
     payload += "</script>"
     return payload
@@ -389,7 +372,6 @@ else:
                    tmpList[key] = value.replace("\n", "")
                if len(tmpList):
                    settingsDict['parseList'] = tmpList
-               del tmpList
             else:
                 print "Error, parse list not found!"
         if "-f=" in option:
@@ -409,12 +391,8 @@ else:
                         print "Error while parsing file " + fileuploadlist + " on line #" + str(key)
                         print "    ->'" + value.replace("\n", "") + "'"
                         sys.exit()
-                    del rowparts
                 if tmpDict:
                     settingsDict['fileDict'] = tmpDict
-
-                del tmpDict
-                del fileuploadlinesList
             else:
                 print "Input filelist not found!"
                 sys.exit()
