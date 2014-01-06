@@ -266,6 +266,7 @@ def xss_gen(requestList, settingsDict):
 
                         if 'fileDict' in settingsDict:
                             if item['name'] in settingsDict['fileDict']:
+                                new_filename = settingsDict['fileDict'][item['name']].split("/")[-1]
                                 filecontents = payload_encode_file(settingsDict['fileDict'][item['name']])
 
                                 # Find content type
@@ -274,7 +275,7 @@ def xss_gen(requestList, settingsDict):
                                 if content_type is None:
                                     content_type = "application/octet-stream"
 
-                                multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + item['filename'] + '"\\r\\n'
+                                multipart += 'Content-Disposition: form-data; name="' + item['name'] + '"; filename="' + new_filename + '"\\r\\n'
                                 multipart += 'Content-Type: ' + content_type + '\\r\\n\\r\\n'
                                 multipart += filecontents + '\\r\\n'
                             else:
