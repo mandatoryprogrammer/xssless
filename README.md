@@ -20,11 +20,11 @@ Features
 * CSRF tokens can be easily extracted and set via the -p option
 * POST multipart is supported, along with XSS file uploading via the -f option
 * Payloads are dynamic and portable (due to relative URLs)
+* Self propagation is now supported - meaning you can set a POST value to the payload itself!
 * Crazy JavaScript worms with no hassle!
 
 Upcoming
 --------
-* Self POSTing for propagating script itself
 * Eliminate BeautifulSoup dependency
 
 Installation

