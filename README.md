@@ -17,7 +17,7 @@ Features
 --------
 * Automated XSS payload generation from imported Burp proxy requests
 * Payloads are 100% asynchronous and won't freeze the user's browser
-* Payloads are self-optimizing, but should be minimized by a third party tool
+* Payloads are optimized, but should be minimized by a third party tool
 * CSRF tokens can be easily extracted and set via the -p option
 * POST multipart is supported, along with XSS file uploading via the -f option
 * Payloads are dynamic and portable (due to relative URLs)
