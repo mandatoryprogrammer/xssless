@@ -26,7 +26,7 @@ Features
 
 Upcoming
 --------
-* Eliminate BeautifulSoup dependency
+* Suggestions?
 
 Installation
 ------------
@@ -34,10 +34,6 @@ Installation
 Download the latest xssless:
 
 `git clone https://github.com/mandatoryprogrammer/xssless`
-
-Install dependencies:
-
-`pip install -r requirements.txt`
 
 Run the script:
 

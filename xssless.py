@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
-from bs4 import BeautifulSoup
-
 import os
 import sys
 import json
 import base64
 import binascii
 import mimetypes
+import xml.etree.ElementTree as et
 
 # Import burp export and return a list of decoded data
 def get_burp_list(filename):
@@ -17,17 +16,21 @@ def get_burp_list(filename):
     with open(filename) as f:
         filecontents = f.read()
 
-    archive = BeautifulSoup(filecontents, "xml")
+    tree = et.fromstring(filecontents)
 
     requestList = []
 
-    for item in archive.find_all('item'):
+    for dict_el in tree.iterfind('item'):
         tmpDict = {}
-        tmpDict['request'] = base64.b64decode(item.request.string)
-        tmpDict['response'] = base64.b64decode(item.response.string)
-        tmpDict['url'] = item.url.string
+        for item in dict_el:
+            if item.tag == "request":
+                tmpDict['request'] = base64.b64decode(item.text)
+            if item.tag == "response":
+                tmpDict['response'] = base64.b64decode(item.text)
+            if item.tag == "url":
+                tmpDict['url'] = item.text
         requestList.append(tmpDict)
-    
+
     return requestList
 
 # Return hex encoded string output of binary input
