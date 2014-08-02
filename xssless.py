@@ -132,11 +132,14 @@ def parse_request(input_var, url):
         body_var_List = body_data.split("&")
         body_var_List = filter(None, body_var_List)
         for item in body_var_List:
-            key, value = item.split("=", 1)
-            bodyDict = {}
-            bodyDict['Key'] = key
-            bodyDict['Value'] = value
-            bodyList.append(bodyDict)
+            try:
+                key, value = item.split("=", 1)
+                bodyDict = {}
+                bodyDict['Key'] = key
+                bodyDict['Value'] = value
+                bodyList.append(bodyDict)
+            except ValueError:
+                pass
         
     # Returned dict, chocked full of useful information formatted nicely for your convienience!
     returnDict = {}
