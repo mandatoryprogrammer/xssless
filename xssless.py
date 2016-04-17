@@ -66,6 +66,7 @@ def parse_request(input_var, url):
     rtypeList = rtype_line.split(" ")
 
     # Create a list of the headers:
+    # TODO Why would you do this rather than just have headerDict['Cookies'] = "PHPSESSID=5fffa5e6e11ddcf3c722533c14adc310"?
     # headerList[0]['Key'] = "Cookies"
     # headerList[0]['Value'] = "PHPSESSID=5fffa5e6e11ddcf3c722533c14adc310"
     headerList = []
@@ -123,6 +124,7 @@ def parse_request(input_var, url):
 
     else:
         # Create a list of body values (check for JSON, etc)
+        # TODO again, why this rather than just a dict?
         # bodyList[0]['Key'] = "username"
         # bodyList[0]['Value'] = "mandatory"
         body_var_List = body_data.split("&")
@@ -169,6 +171,7 @@ def parse_response(input_var, url):
     rtypeList = rtype_line.split(" ")
 
     # Create a list of the headers:
+    # TODO again, why this rather than just a dict?
     # headerList[0]['Key'] = "Cookies"
     # headerList[0]['Value'] = "PHPSESSID=5fffa5e6e11ddcf3c722533c14adc310"
     headerList = []
