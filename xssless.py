@@ -413,7 +413,7 @@ if __name__ == '__main__':
 
         for option in sys.argv[1:]:
             if option == "-s":
-                pass
+                continue
             if option == "-h":
                 if showlogo:
                     print logo
