@@ -3,17 +3,17 @@
 import os
 import sys
 import json
-import base64
 import binascii
 import mimetypes
 import xml.etree.ElementTree as et
+from base64 import b64decode
 
 # Import burp export and return a list of decoded data
 def get_burp_list(filename):
     if not os.path.exists(filename):
         return []
 
-    with open(filename) as f:
+    with open(filename, 'r') as f:
         filecontents = f.read()
 
     tree = et.fromstring(filecontents)
@@ -23,19 +23,15 @@ def get_burp_list(filename):
     for dict_el in tree.iterfind('item'):
         tmpDict = {}
         for item in dict_el:
-            if item.tag == "request":
-                tmpDict['request'] = base64.b64decode(item.text)
-            if item.tag == "response":
-                tmpDict['response'] = base64.b64decode(item.text)
-            if item.tag == "url":
-                tmpDict['url'] = item.text
+            if item.tag in ["request", "response", "url"]:
+                tmpDict[item.tag] = b64decode(item.text)
         requestList.append(tmpDict)
 
     return requestList
 
 # Return hex encoded string output of binary input
 def payload_encode_file(input_file):
-    with open(input_file) as f:
+    with open(input_file, 'r') as f:
         filecontents = f.read()
     hue = binascii.hexlify(filecontents)
     filecontents = '\\x' + '\\x'.join(hue[i:i+2] for i in xrange(0, len(hue), 2)) # Stackoverflow, because pythonistic
@@ -404,78 +400,87 @@ Example: """ + sys.argv[0] + """ [ OPTION(S) ] [ BURP FILE ]
 -n               Turn off payload optimization
 
 """
-if len(sys.argv) < 2:
-    print logo
-    print helpmenu
-else:
-    # settingsDict will contain code generation settings, such as waiting for each request to complete, etc.
-    settingsDict = {}
-    settingsDict['opt'] = True
-
-    showlogo = True
-
-    for option in sys.argv[1:]:
-        if option == "-h":
-            print logo
-            print helpmenu
-            sys.exit()
-        if option == "-s":
-            showlogo = False
-        if "-m=" in option:
-            metafile = option.replace("-m=", "")
-            if os.path.isfile(metafile):
-                tmpList = open(metafile).readlines()
-                for key,value in enumerate(tmpList):
-                    tmpList[key] = value.replace("\n", "")
-                if len(tmpList):
-                    settingsDict['metaList'] = tmpList
-            else:
-                print "Error, meta list not found!"
-        if "-p=" in option:
-            parsefile = option.replace("-p=", "")
-            if os.path.isfile(parsefile):
-               tmpList = open(parsefile).readlines()
-               for key,value in enumerate(tmpList):
-                   tmpList[key] = value.replace("\n", "")
-               if len(tmpList):
-                   settingsDict['parseList'] = tmpList
-            else:
-                print "Error, parse list not found!"
-        if "-n" in option:
-            settingsDict['opt'] = False
-        if "-f=" in option:
-            fileuploadlist = option.replace("-f=", "")
-            if os.path.isfile(fileuploadlist):
-                tmpDict = {}
-                fileuploadlinesList = open(fileuploadlist).readlines()
-                for key, value in enumerate(fileuploadlinesList):
-                    rowparts = value.replace("\n", "").split(",", 1)
-                    if len(rowparts) == 2:
-                        if os.path.isfile(rowparts[1]):
-                            tmpDict[rowparts[0]] = rowparts[1]
-                        else:
-                            print "File '" + rowparts[1] + "' not found!"
-                            sys.exit()
-                    else:
-                        print "Error while parsing file " + fileuploadlist + " on line #" + str(key)
-                        print "    ->'" + value.replace("\n", "") + "'"
-                        sys.exit()
-                if tmpDict:
-                    settingsDict['fileDict'] = tmpDict
-            else:
-                print "Input filelist not found!"
-                sys.exit()
-
-    if os.path.exists(sys.argv[-1]):
-        inputfile = sys.argv[-1]
-    else:
-        inputfile = ""
-
-    if showlogo:
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
         print logo
-
-    if inputfile:
-        requestList = get_burp_list(inputfile)
-        print xss_gen(requestList, settingsDict)
+        print helpmenu
     else:
-        print "Error while processing Burp export, please ensure the file exists!"
+        # settingsDict will contain code generation settings, such as waiting for each request to complete, etc.
+        settingsDict = {}
+        settingsDict['opt'] = True
+
+        showlogo = False if "-s" in sys.argv[1:] else True # quick check for this first incase they hate logos
+
+        for option in sys.argv[1:]:
+            if option == "-s":
+                pass
+            if option == "-h":
+                if showlogo:
+                    print logo
+                print helpmenu
+                sys.exit(0)
+            if "-m=" in option:
+                metafile = option.replace("-m=", "")
+                if os.path.isfile(metafile):
+                    tmpList = open(metafile).readlines()
+                    for key,value in enumerate(tmpList):
+                        tmpList[key] = value.replace("\n", "")
+                    if len(tmpList):
+                        settingsDict['metaList'] = tmpList
+                else:
+                    print "Error, meta list not found!"
+            if "-p=" in option:
+                parsefile = option.replace("-p=", "")
+                if os.path.isfile(parsefile):
+                   tmpList = open(parsefile).readlines()
+                   for key,value in enumerate(tmpList):
+                       tmpList[key] = value.replace("\n", "")
+                   if len(tmpList):
+                       settingsDict['parseList'] = tmpList
+                else:
+                    print "Error, parse list not found!"
+            if "-n" in option:
+                settingsDict['opt'] = False
+            if "-f=" in option:
+                fileuploadlist = option.replace("-f=", "")
+                if os.path.isfile(fileuploadlist):
+                    tmpDict = {}
+                    fileuploadlinesList = open(fileuploadlist).readlines()
+                    for key, value in enumerate(fileuploadlinesList):
+                        rowparts = value.replace("\n", "").split(",", 1)
+                        if len(rowparts) == 2:
+                            if os.path.isfile(rowparts[1]):
+                                tmpDict[rowparts[0]] = rowparts[1]
+                            else:
+                                print "File '" + rowparts[1] + "' not found!"
+                                sys.exit(1)
+                        else:
+                            print "Error while parsing file " + fileuploadlist + " on line #" + str(key)
+                            print "    ->'" + value.replace("\n", "") + "'"
+                            sys.exit(1)
+                    if tmpDict:
+                        settingsDict['fileDict'] = tmpDict
+                else:
+                    print "Input filelist not found!"
+                    sys.exit(1)
+            else:
+                print "Option " + option + " not recognized."
+                if showlogo:
+                    print logo
+                print helpmenu
+                sys.exit(1)
+
+        if os.path.exists(sys.argv[-1]):
+            inputfile = sys.argv[-1]
+        else:
+            inputfile = ""
+
+        if showlogo:
+            print logo
+
+        if inputfile:
+            requestList = get_burp_list(inputfile)
+            print xss_gen(requestList, settingsDict)
+        else:
+            print "Error while processing Burp export, please ensure the file exists!"
+            sys.exit(1)
