@@ -34,13 +34,13 @@ def payload_encode_file(input_file):
     with open(input_file, 'r') as f:
         filecontents = f.read()
     hue = binascii.hexlify(filecontents)
-    filecontents = '\\x' + '\\x'.join(hue[i:i+2] for i in xrange(0, len(hue), 2)) # Stackoverflow, because pythonistic
+    filecontents = '\\x' + '\\x'.join(hue[i:i+2] for i in range(0, len(hue), 2)) # Stackoverflow, because pythonistic
     return filecontents
 
 # Return hex encoded string output of binary input
 def payload_encode_input(filecontents):
     hue = binascii.hexlify(filecontents)
-    filecontents = '\\x' + '\\x'.join(hue[i:i+2] for i in xrange(0, len(hue), 2)) # Stackoverflow, because pythonistic
+    filecontents = '\\x' + '\\x'.join(hue[i:i+2] for i in range(0, len(hue), 2)) # Stackoverflow, because pythonistic
     return filecontents
 
 # Get a list of headers for request/response
