@@ -495,7 +495,7 @@ def main():
                     with open(outfile, 'w') as f:
                         f.write(payload)
                 except:
-                    print("Couldn't open file '" + outfilfe + "' for writing.")
+                    print("Couldn't open file '" + outfile + "' for writing.")
                     sys.exit(1)
             else:
                 print(payload)
