@@ -16,8 +16,11 @@ def get_burp_list(filename):
     with open(filename, 'r') as f:
         filecontents = f.read()
 
-    tree = et.fromstring(filecontents)
-
+    try:
+        tree = et.fromstring(filecontents)
+    except et.ParseError as e:
+        print("Error while processing Burp export, " + str(e))
+        sys.exit(1)
     requestList = []
 
     for dict_el in tree.iterfind('item'):
@@ -475,12 +478,6 @@ def main():
                 else:
                     print("Input filelist not found!")
                     sys.exit(1)
-            else:
-                print("Option '" + option + "' not recognized.")
-                if showlogo:
-                    print(logo)
-                print(helpmenu)
-                sys.exit(1)
 
         if os.path.exists(sys.argv[-1]):
             inputfile = sys.argv[-1]
