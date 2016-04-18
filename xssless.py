@@ -12,13 +12,11 @@ from base64 import b64decode
 def get_burp_list(filename):
     if not os.path.exists(filename):
         return []
-
-    with open(filename, 'r') as f:
-        filecontents = f.read()
-
     try:
+        with open(filename, 'r') as f:
+            filecontents = f.read()
         tree = et.fromstring(filecontents)
-    except et.ParseError as e:
+    except Exception as e:
         print("Error while processing Burp export, " + str(e))
         sys.exit(1)
     requestList = []
