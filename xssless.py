@@ -24,8 +24,10 @@ def get_burp_list(filename):
     for dict_el in tree.iterfind('item'):
         tmpDict = {}
         for item in dict_el:
-            if item.tag in ["request", "response", "url"]:
+            if item.tag in ["request", "response"]:
                 tmpDict[item.tag] = b64decode(item.text)
+            elif item.tag == 'url':
+                tmpDict[item.tag] = item.text
         requestList.append(tmpDict)
 
     return requestList
